@@ -7,11 +7,13 @@
 #include <HTTPClient.h>
 #include <ArduinoJson.h>
 
-#define LED_BUILTIN 2
+#define LED_YA 4
+#define LED_YO 23
+#define PIN_BUZZER 22  // 피에조 부저 연결 핀 (필요시 변경)
 
 // WiFi 설정 (본인의 WiFi 정보로 변경하세요)
-const char* ssid = "myssid";
-const char* password = "1234";
+const char* ssid = "U+1234345";
+const char* password = "1234$H1A5";
 
 // HTTP 서버 URL
 const char* serverURL = "http://192.168.123.111:5003/api/data";
@@ -19,6 +21,9 @@ const char* serverURL = "http://192.168.123.111:5003/api/data";
 // 큐 핸들 선언
 QueueHandle_t queueYaToYe;
 QueueHandle_t queueYeToYa;
+
+// TaskYo에서 생성한 마지막 랜덤값 (TaskMa에서 사용)
+volatile int lastRandomNumber = 0;
 
 // 메시지 구조체 정의
 struct Message {
@@ -48,10 +53,10 @@ void TaskYa(void *parameter) {
       Serial.printf("[TaskYa-Core%d] 수신: %s (값: %d)\n", 
                     xPortGetCoreID(), receiveMsg.text, receiveMsg.value);
       
-      // LED 깜빡임 (메시지 수신 표시)
-      digitalWrite(LED_BUILTIN, HIGH);
+      // TaskYa 데이터 송수신 시 4번 핀 LED ON/OFF
+      digitalWrite(LED_YA, HIGH);
       vTaskDelay(pdMS_TO_TICKS(100));
-      digitalWrite(LED_BUILTIN, LOW);
+      digitalWrite(LED_YA, LOW);
     } else {
       Serial.printf("[TaskYa-Core%d] 메시지 수신 타임아웃\n", xPortGetCoreID());
     }
@@ -110,13 +115,19 @@ void TaskYo(void *parameter) {
       // JSON 데이터 생성
       StaticJsonDocument<200> jsonDoc;
       jsonDoc["timestamp"] = millis();
-      jsonDoc["random_number"] = random(1, 100);
+      int randNum = random(1, 100);
+      jsonDoc["random_number"] = randNum;
+      lastRandomNumber = randNum;
+      Serial.printf("[TaskYo] 생성 random_number: %d (lastRandomNumber=%d)\n", randNum, lastRandomNumber);
       jsonDoc["device_id"] = "ESP32_TaskYo";
       jsonDoc["core_id"] = xPortGetCoreID();
       
       String jsonString;
       serializeJson(jsonDoc, jsonString);
       
+      // TaskYo 데이터 전송 시 23번 핀 LED ON
+      digitalWrite(LED_YO, HIGH);
+
       // HTTP POST 요청
       http.begin(serverURL);
       http.addHeader("Content-Type", "application/json");
@@ -125,9 +136,7 @@ void TaskYo(void *parameter) {
       
       if (httpResponseCode > 0) {
         String response = http.getString();
-        Serial.printf("[TaskYo-Core%d] HTTP 전송 성공 (코드: %d)\n", 
-                      xPortGetCoreID(), httpResponseCode);
-        Serial.printf("[TaskYo-Core%d] 전송 데이터: %s\n", 
+        Serial.printf("[TaskYo-Core%d] HTTP 전송 성공! JSON: %s\n", 
                       xPortGetCoreID(), jsonString.c_str());
         if (response.length() > 0) {
           Serial.printf("[TaskYo-Core%d] 서버 응답: %s\n", 
@@ -139,6 +148,10 @@ void TaskYo(void *parameter) {
       }
       
       http.end();
+
+      // 데이터 전송 후 23번 핀 LED OFF (0.1초 유지)
+      vTaskDelay(pdMS_TO_TICKS(100));
+      digitalWrite(LED_YO, LOW);
     } else {
       Serial.printf("[TaskYo-Core%d] WiFi 연결 끊어짐. 재연결 시도...\n", xPortGetCoreID());
     }
@@ -189,13 +202,17 @@ void TaskMonitor(void *parameter) {
     }
     Serial.printf("TaskYa->TaskYe 큐 대기: %d\n", uxQueueMessagesWaiting(queueYaToYe));
     Serial.printf("TaskYe->TaskYa 큐 대기: %d\n", uxQueueMessagesWaiting(queueYeToYa));
+    Serial.printf("TaskYo 마지막 random_number: %d\n", lastRandomNumber);
+    Serial.printf("TaskMa 도레미 연주 대기 상태: %s\n", lastRandomNumber > 90 ? "연주 대기중" : "정상");
     Serial.println("==============================");
   }
 }
 
 void setup() {
   Serial.begin(115200);
-  pinMode(LED_BUILTIN, OUTPUT);
+  pinMode(LED_YA, OUTPUT);
+  pinMode(LED_YO, OUTPUT);
+  pinMode(PIN_BUZZER, OUTPUT);
   
   Serial.println("ESP32 듀얼 코어 FreeRTOS + HTTP 통신 예제");
   Serial.println("TaskYa -> 코어 1, TaskYe -> 코어 0, TaskYo -> 코어 0");
@@ -265,8 +282,36 @@ void setup() {
   Serial.println("- TaskYo: 코어 0에서 실행 (HTTP JSON 전송)");
   Serial.println("- Monitor: 코어 0에서 실행 (시스템 모니터링)");
   Serial.println("모든 태스크 시작...");
+
+  // TaskMa 태스크 생성 (코어 0)
+  xTaskCreatePinnedToCore(
+    TaskMa,           // 태스크 함수
+    "TaskMa",         // 태스크 이름
+    2048,             // 스택 크기
+    NULL,             // 매개변수
+    1,                // 우선순위
+    NULL,             // 태스크 핸들
+    0                 // 코어 0에 할당
+  );
 }
 
+
+// TaskMa: TaskYo의 랜덤값이 60 초과 시 도레미 연주
+void TaskMa(void *parameter) {
+  while (true) {
+    if (lastRandomNumber > 90) {
+      Serial.printf("[TaskMa] random_number %d > 90, 띵동 연주!\n", lastRandomNumber);
+      // 띵: 784Hz(G5), 동: 523Hz(C5)
+      tone(PIN_BUZZER, 784, 200); // 띵
+      vTaskDelay(pdMS_TO_TICKS(220));
+      tone(PIN_BUZZER, 523, 400); // 동
+      vTaskDelay(pdMS_TO_TICKS(420));
+      noTone(PIN_BUZZER);
+      lastRandomNumber = 0; // 연주 후 중복 방지
+    }
+    vTaskDelay(pdMS_TO_TICKS(100)); // 0.1초마다 체크
+  }
+}
 
 void loop() {
   // FreeRTOS에서는 loop() 함수가 비어있어도 됩니다

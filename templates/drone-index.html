@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>드론 제어 시스템 모니터링</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+  <style>
+    .gauge {
+      width: 100%;
+      height: 200px;
+      position: relative;
+    }
+    .gauge-value {
+      position: absolute;
+      width: 100%;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: bold;
+      bottom: 10px;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+  <div class="container mx-auto px-4 py-8">
+    <h1 class="text-3xl font-bold text-blue-600 mb-8">드론 제어 시스템 모니터링</h1>
+    
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+      <!-- IMU 가속도계 -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">IMU 가속도계</h2>
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span>X:</span>
+            <span id="accel-x">0.000</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Y:</span>
+            <span id="accel-y">0.000</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Z:</span>
+            <span id="accel-z">0.000</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 자세 정보 -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">자세 정보</h2>
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span>Pitch:</span>
+            <span id="pitch">0.00°</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Roll:</span>
+            <span id="roll">0.00°</span>
+          </div>
+          <div class="flex justify-between">
+            <span>Yaw:</span>
+            <span id="yaw">0.00°</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 고도 및 GPS -->
+      <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold mb-4">고도 및 위치</h2>
+        <div class="space-y-2">
+          <div class="flex justify-between">
+            <span>고도:</span>
+            <span id="altitude">0.00 m</span>
+          </div>
+          <div class="flex justify-between">
+            <span>위도:</span>
+            <span id="latitude">0.00000</span>
+          </div>
+          <div class="flex justify-between">
+            <span>경도:</span>
+            <span id="longitude">0.00000</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 모터 출력 -->
+    <div class="bg-white rounded-lg shadow p-6 mb-8">
+      <h2 class="text-xl font-semibold mb-4">모터 출력</h2>
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div class="text-center">
+          <div class="text-sm text-gray-500">M1</div>
+          <div id="motor-1" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-sm text-gray-500">M2</div>
+          <div id="motor-2" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-sm text-gray-500">M3</div>
+          <div id="motor-3" class="text-2xl font-bold">0</div>
+        </div>
+        <div class="text-center">
+          <div class="text-sm text-gray-500">M4</div>
+          <div id="motor-4" class="text-2xl font-bold">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 상태 정보 -->
+    <div class="bg-white rounded-lg shadow p-6">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-xl font-semibold">시스템 상태</h2>
+        <div class="text-sm text-gray-500" id="last-update">마지막 업데이트: -</div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full bg-white">
+          <thead>
+            <tr class="bg-gray-100">
+              <th class="py-2 px-4 text-left">항목</th>
+              <th class="py-2 px-4 text-right">값</th>
+            </tr>
+          </thead>
+          <tbody id="status-table">
+            <!-- JavaScript로 동적으로 생성 -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let lastData = null;
+    let charts = {};
+
+    // 데이터 업데이트 함수
+    function updateData() {
+      fetch('/api/current')
+        .then(response => response.json())
+        .then(response => {
+          // response.current contains the current data point
+          if (response.current && JSON.stringify(response.current) !== JSON.stringify(lastData)) {
+            lastData = response.current;
+            updateUI(response.current);
+          }
+        })
+        .catch(error => console.error('Error fetching data:', error));
+    }
+
+    // UI 업데이트 함수
+    function updateUI(data) {
+      if (!data) return;
+
+      // 마지막 업데이트 시간
+      document.getElementById('last-update').textContent = 
+        `마지막 업데이트: ${new Date().toLocaleTimeString()}`;
+
+      // IMU 가속도계
+      if (data.sensor?.imu?.accel) {
+        document.getElementById('accel-x').textContent = data.sensor.imu.accel.x.toFixed(3);
+        document.getElementById('accel-y').textContent = data.sensor.imu.accel.y.toFixed(3);
+        document.getElementById('accel-z').textContent = data.sensor.imu.accel.z.toFixed(3);
+      }
+
+      // 자세 정보
+      if (data.stabilizer?.attitude) {
+        document.getElementById('pitch').textContent = `${data.stabilizer.attitude.pitch.toFixed(2)}°`;
+        document.getElementById('roll').textContent = `${data.stabilizer.attitude.roll.toFixed(2)}°`;
+        document.getElementById('yaw').textContent = `${data.stabilizer.attitude.yaw.toFixed(2)}°`;
+      }
+
+      // 고도 및 위치
+      if (data.sensor?.baro) {
+        document.getElementById('altitude').textContent = `${data.sensor.baro.altitude.toFixed(2)} m`;
+      }
+      if (data.sensor?.gps) {
+        document.getElementById('latitude').textContent = data.sensor.gps.lat.toFixed(5);
+        document.getElementById('longitude').textContent = data.sensor.gps.lon.toFixed(5);
+      }
+
+      // 모터 출력
+      if (data.stabilizer?.motors) {
+        document.getElementById('motor-1').textContent = Math.round(data.stabilizer.motors.m1);
+        document.getElementById('motor-2').textContent = Math.round(data.stabilizer.motors.m2);
+        document.getElementById('motor-3').textContent = Math.round(data.stabilizer.motors.m3);
+        document.getElementById('motor-4').textContent = Math.round(data.stabilizer.motors.m4);
+      }
+
+      // 상태 테이블 업데이트
+      updateStatusTable(data);
+    }
+
+    // 상태 테이블 업데이트
+    function updateStatusTable(data) {
+      const tableBody = document.getElementById('status-table');
+      tableBody.innerHTML = '';
+
+      if (!data) return;
+
+      // 센서 데이터 추가
+      addTableRow(tableBody, 'IMU 자이로 X', data.sensor?.imu?.gyro?.x?.toFixed(3) + ' rad/s');
+      addTableRow(tableBody, 'IMU 자이로 Y', data.sensor?.imu?.gyro?.y?.toFixed(3) + ' rad/s');
+      addTableRow(tableBody, 'IMU 자이로 Z', data.sensor?.imu?.gyro?.z?.toFixed(3) + ' rad/s');
+      
+      // PID 출력 추가
+      addTableRow(tableBody, 'PID Pitch', data.stabilizer?.pid?.pitch?.toFixed(2));
+      addTableRow(tableBody, 'PID Roll', data.stabilizer?.pid?.roll?.toFixed(2));
+      addTableRow(tableBody, 'PID Yaw', data.stabilizer?.pid?.yaw?.toFixed(2));
+      
+      // GPS 속도
+      if (data.sensor?.gps?.speed !== undefined) {
+        addTableRow(tableBody, 'GPS 속도', data.sensor.gps.speed.toFixed(2) + ' m/s');
+      }
+    }
+
+    // 테이블 행 추가 헬퍼 함수
+    function addTableRow(tbody, label, value) {
+      const row = document.createElement('tr');
+      row.className = 'border-t';
+      row.innerHTML = `
+        <td class="py-2 px-4">${label}</td>
+        <td class="py-2 px-4 text-right">${value}</td>
+      `;
+      tbody.appendChild(row);
+    }
+
+    // 초기화
+    document.addEventListener('DOMContentLoaded', () => {
+      // 1초마다 데이터 업데이트
+      setInterval(updateData, 1000);
+      // 페이지 로드 시 즉시 한 번 업데이트
+      updateData();
+    });
+  </script>
+</body>
+</html>

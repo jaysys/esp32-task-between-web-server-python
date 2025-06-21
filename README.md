@@ -20,7 +20,7 @@ ESP32(예: TaskYo.ino)에서 HTTP POST로 전송되는 JSON 데이터를 수신�
 2. **서버 실행**
 
    ```bash
-   python main.py
+   python task.py
    # 또는 uv run python main.py
    ```
 
