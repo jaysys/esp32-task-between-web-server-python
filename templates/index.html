@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>ESP32 데이터 실시간 모니터링</title>
+  <style>
+    body { font-family: 'Segoe UI', Arial, sans-serif; background: #f6f8fa; margin: 0; }
+    .container { max-width: 600px; margin: 40px auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 32px; }
+    h1 { color: #0077cc; }
+    table { width: 100%; border-collapse: collapse; margin-top: 24px; }
+    th, td { padding: 12px 8px; text-align: left; border-bottom: 1px solid #eee; }
+    th { background: #f0f4f8; }
+    .timestamp { color: #888; font-size: 0.9em; }
+    .status-ok { color: #008800; }
+    .status-err { color: #cc0000; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>ESP32 데이터 실시간 모니터링</h1>
+    <table>
+      <thead>
+        <tr>
+          <th>수신 시각</th>
+          <th>timestamp</th>
+          <th>random_number</th>
+          <th>device_id</th>
+          <th>core_id</th>
+        </tr>
+      </thead>
+      <tbody id="data-tbody">
+      </tbody>
+    </table>
+  </div>
+  <script>
+    function fetchData() {
+      fetch('/api/latest')
+        .then(res => res.json())
+        .then(list => {
+          const tbody = document.getElementById('data-tbody');
+          tbody.innerHTML = '';
+          list.forEach(row => {
+            tbody.innerHTML += `<tr>
+              <td class="timestamp">${row.recv_time}</td>
+              <td>${row.timestamp}</td>
+              <td>${row.random_number}</td>
+              <td>${row.device_id}</td>
+              <td>${row.core_id}</td>
+            </tr>`;
+          });
+        });
+    }
+    setInterval(fetchData, 2000);
+    fetchData();
+  </script>
+</body>
+</html>
