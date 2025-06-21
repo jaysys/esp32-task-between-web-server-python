@@ -36,6 +36,7 @@ ESP32(예: TaskYo.ino)에서 HTTP POST로 전송되는 JSON 데이터를 수신�
      const char* serverURL = "http://192.168.123.111:5003/api/data";
      ```
    - ESP32가 HTTP POST로 아래와 같은 JSON을 전송합니다.
+   - arduinojson 라이브러리 사용합니다. 라이브러리 설치해줘야 합니다.
      ```json
      {
        "timestamp": 1234567,
