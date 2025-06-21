@@ -31,7 +31,7 @@ ESP32(예: TaskYo.ino)에서 HTTP POST로 전송되는 JSON 데이터를 수신�
 
 4. **ESP32 연동**
    - ESP32 코드의 `serverURL`을 서버 주소(`http://<PC_IP>:5003/api/data`)로 맞춰주세요.
-   - 예시: (코드: TaskYo.ino)
+   - 예시: (코드: main-task-led-buzzer.ino)
      ```cpp
      const char* serverURL = "http://192.168.123.111:5003/api/data";
      ```
