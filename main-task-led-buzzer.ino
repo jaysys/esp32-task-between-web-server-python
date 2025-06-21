@@ -12,8 +12,8 @@
 #define PIN_BUZZER 22  // 피에조 부저 연결 핀 (필요시 변경)
 
 // WiFi 설정 (본인의 WiFi 정보로 변경하세요)
-const char* ssid = "U+1234345";
-const char* password = "1234$H1A5";
+const char* ssid = "U5555";
+const char* password = "5555";
 
 // HTTP 서버 URL
 const char* serverURL = "http://192.168.123.111:5003/api/data";

@@ -6,6 +6,7 @@ import time
 from datetime import datetime
 
 app = Flask(__name__)
+CORS(app)  # Enable CORS for all routes
 
 # 최근 수신 데이터 저장 (최대 50개)
 latest_data = []
@@ -15,16 +16,15 @@ data_lock = threading.Lock()
 def init_data():
     return {
         'timestamp': datetime.now().isoformat(),
-        'sensor': {
-            'imu': {'accel': {'x': 0, 'y': 0, 'z': 0}, 'gyro': {'x': 0, 'y': 0, 'z': 0}},
-            'baro': {'altitude': 0},
-            'gps': {'lat': 0, 'lon': 0, 'alt': 0, 'speed': 0},
-            'magnetometer': {'x': 0, 'y': 0, 'z': 0}
-        },
-        'stabilizer': {
-            'attitude': {'pitch': 0, 'roll': 0, 'yaw': 0},
-            'pid': {'pitch': 0, 'roll': 0, 'yaw': 0},
-            'motors': {'m1': 0, 'm2': 0, 'm3': 0, 'm4': 0}
+        'flight_phase': 'IDLE',
+        'altitude': 0.0,
+        'imu': {
+            'accel_x': 0.0,
+            'accel_y': 0.0,
+            'accel_z': 0.0,
+            'gyro_x': 0.0,
+            'gyro_y': 0.0,
+            'gyro_z': 0.0
         },
         'recv_time': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
@@ -37,17 +37,36 @@ def receive_data():
         data = request.get_json(force=True)
         recv_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         
+        # Get motor data if it exists in the request
+        motor_data = data.get('motors', {})
+        
         # 데이터 구조 업데이트
         with data_lock:
             current_data.update({
-                'timestamp': datetime.now().isoformat(),
-                'sensor': data.get('sensor', {}),
-                'stabilizer': data.get('stabilizer', {}),
+                'timestamp': datetime.fromtimestamp(data.get('timestamp', time.time()) / 1000).isoformat(),
+                'flight_phase': data.get('flight_phase', 'UNKNOWN'),
+                'altitude': float(data.get('altitude', 0.0)),
+                'imu': {
+                    'accel_x': float(data.get('imu', {}).get('accel_x', 0.0)),
+                    'accel_y': float(data.get('imu', {}).get('accel_y', 0.0)),
+                    'accel_z': float(data.get('imu', {}).get('accel_z', 0.0)),
+                    'gyro_x': float(data.get('imu', {}).get('gyro_x', 0.0)),
+                    'gyro_y': float(data.get('imu', {}).get('gyro_y', 0.0)),
+                    'gyro_z': float(data.get('imu', {}).get('gyro_z', 0.0))
+                },
+                'motors': {
+                    'm1': float(motor_data.get('m1', 0.0)),
+                    'm2': float(motor_data.get('m2', 0.0)),
+                    'm3': float(motor_data.get('m3', 0.0)),
+                    'm4': float(motor_data.get('m4', 0.0))
+                },
                 'recv_time': recv_time
             })
             
             # 히스토리 저장 (최대 50개)
             latest_data.insert(0, current_data.copy())
+            if len(latest_data) > 50:
+                latest_data.pop()
             if len(latest_data) > 50:
                 latest_data.pop()
                 
@@ -58,12 +77,27 @@ def receive_data():
         print(f"[서버 에러] {e}")
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
-@app.route('/api/current')
-def api_current():
+@app.route('/api/latest')
+def get_latest_data():
     with data_lock:
         return jsonify({
-            'current': current_data,
-            'history': latest_data[:10]  # Return last 10 history items for reference
+            'status': 'success',
+            'data': current_data,
+            'history': latest_data[:10]  # 최근 10개 데이터만 반환
+        })
+
+@app.route('/api/status')
+def get_status():
+    with data_lock:
+        return jsonify({
+            'status': 'success',
+            'flight_phase': current_data['flight_phase'],
+            'altitude': current_data['altitude'],
+            'motors': current_data.get('motors', {
+                'm1': 0.0, 'm2': 0.0, 'm3': 0.0, 'm4': 0.0
+            }),
+            'timestamp': current_data.get('timestamp'),  # 드론에서 보낸 원본 타임스탬프
+            'last_update': current_data['recv_time']  # 서버에서 수신한 시간
         })
 
 # 정적 파일 서빙

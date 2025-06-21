@@ -20,6 +20,15 @@
       font-weight: bold;
       bottom: 10px;
     }
+    .phase-idle { background-color: #e5e7eb; color: #4b5563; }
+    .phase-takeoff { background-color: #93c5fd; color: #1e40af; }
+    .phase-hover { background-color: #86efac; color: #166534; }
+    .phase-move_forward { background-color: #a5b4fc; color: #4338ca; }
+    .phase-move_backward { background-color: #f0abfc; color: #86198f; }
+    .phase-move_left { background-color: #fcd34d; color: #92400e; }
+    .phase-move_right { background-color: #f59e0b; color: #7c2d12; }
+    .phase-land { background-color: #fca5a5; color: #991b1b; }
+    .phase-emergency_stop { background-color: #ef4444; color: #7f1d1d; font-weight: bold; }
   </style>
 </head>
 <body class="bg-gray-100">
@@ -46,40 +55,40 @@
         </div>
       </div>
 
-      <!-- 자세 정보 -->
+      <!-- 자이로스코프 -->
       <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold mb-4">자세 정보</h2>
+        <h2 class="text-xl font-semibold mb-4">자이로스코프 (rad/s)</h2>
         <div class="space-y-2">
           <div class="flex justify-between">
-            <span>Pitch:</span>
-            <span id="pitch">0.00°</span>
+            <span>X:</span>
+            <span id="gyro-x">0.00</span>
           </div>
           <div class="flex justify-between">
-            <span>Roll:</span>
-            <span id="roll">0.00°</span>
+            <span>Y:</span>
+            <span id="gyro-y">0.00</span>
           </div>
           <div class="flex justify-between">
-            <span>Yaw:</span>
-            <span id="yaw">0.00°</span>
+            <span>Z:</span>
+            <span id="gyro-z">0.00</span>
           </div>
         </div>
       </div>
 
-      <!-- 고도 및 GPS -->
+      <!-- 시스템 정보 -->
       <div class="bg-white rounded-lg shadow p-6">
-        <h2 class="text-xl font-semibold mb-4">고도 및 위치</h2>
+        <h2 class="text-xl font-semibold mb-4">시스템 정보</h2>
         <div class="space-y-2">
           <div class="flex justify-between">
-            <span>고도:</span>
-            <span id="altitude">0.00 m</span>
+            <span>서버 시간:</span>
+            <span id="server-time">-</span>
           </div>
           <div class="flex justify-between">
-            <span>위도:</span>
-            <span id="latitude">0.00000</span>
+            <span>마지막 업데이트:</span>
+            <span id="last-update-time">-</span>
           </div>
           <div class="flex justify-between">
-            <span>경도:</span>
-            <span id="longitude">0.00000</span>
+            <span>데이터 업데이트:</span>
+            <span id="last-update">-</span>
           </div>
         </div>
       </div>
@@ -87,47 +96,47 @@
 
     <!-- 모터 출력 -->
     <div class="bg-white rounded-lg shadow p-6 mb-8">
-      <h2 class="text-xl font-semibold mb-4">모터 출력</h2>
+      <h2 class="text-xl font-semibold mb-4">모터 출력 (μs)</h2>
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div class="text-center">
-          <div class="text-sm text-gray-500">M1</div>
-          <div id="motor-1" class="text-2xl font-bold">0</div>
+        <div class="text-center p-4 bg-yellow-50 rounded-lg">
+          <div class="text-sm text-gray-600 mb-1">M3 (Front Left)</div>
+          <div id="motor-3" class="text-2xl font-bold text-yellow-700">1000</div>
+          <div class="text-xs text-gray-500">PWM: <span id="motor-3-pwm">1000</span>μs</div>
         </div>
-        <div class="text-center">
-          <div class="text-sm text-gray-500">M2</div>
-          <div id="motor-2" class="text-2xl font-bold">0</div>
+        <div class="text-center p-4 bg-blue-50 rounded-lg">
+          <div class="text-sm text-gray-600 mb-1">M1 (Front Right)</div>
+          <div id="motor-1" class="text-2xl font-bold text-blue-700">1000</div>
+          <div class="text-xs text-gray-500">PWM: <span id="motor-1-pwm">1000</span>μs</div>
         </div>
-        <div class="text-center">
-          <div class="text-sm text-gray-500">M3</div>
-          <div id="motor-3" class="text-2xl font-bold">0</div>
+        <div class="text-center p-4 bg-green-50 rounded-lg">
+          <div class="text-sm text-gray-600 mb-1">M2 (Rear Left)</div>
+          <div id="motor-2" class="text-2xl font-bold text-green-700">1000</div>
+          <div class="text-xs text-gray-500">PWM: <span id="motor-2-pwm">1000</span>μs</div>
         </div>
-        <div class="text-center">
-          <div class="text-sm text-gray-500">M4</div>
-          <div id="motor-4" class="text-2xl font-bold">0</div>
+        <div class="text-center p-4 bg-red-50 rounded-lg">
+          <div class="text-sm text-gray-600 mb-1">M4 (Rear Right)</div>
+          <div id="motor-4" class="text-2xl font-bold text-red-700">1000</div>
+          <div class="text-xs text-gray-500">PWM: <span id="motor-4-pwm">1000</span>μs</div>
         </div>
       </div>
     </div>
 
-    <!-- 상태 정보 -->
-    <div class="bg-white rounded-lg shadow p-6">
-      <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold">시스템 상태</h2>
-        <div class="text-sm text-gray-500" id="last-update">마지막 업데이트: -</div>
-      </div>
-      <div class="overflow-x-auto">
-        <table class="min-w-full bg-white">
-          <thead>
-            <tr class="bg-gray-100">
-              <th class="py-2 px-4 text-left">항목</th>
-              <th class="py-2 px-4 text-right">값</th>
-            </tr>
-          </thead>
-          <tbody id="status-table">
-            <!-- JavaScript로 동적으로 생성 -->
-          </tbody>
-        </table>
+    <!-- 비행 상태 -->
+    <div class="bg-white rounded-lg shadow p-6 mb-8">
+      <h2 class="text-xl font-semibold mb-4">비행 상태</h2>
+      <div class="flex items-center justify-between">
+        <div>
+          <div class="text-sm text-gray-500">현재 상태</div>
+          <div id="flight-phase" class="text-2xl font-bold px-4 py-2 rounded-md inline-block">IDLE</div>
+        </div>
+        <div class="text-right">
+          <div class="text-sm text-gray-500">고도</div>
+          <div class="text-2xl font-bold" id="altitude-value">0.00 m</div>
+        </div>
       </div>
     </div>
+
+
   </div>
 
   <script>
@@ -136,13 +145,12 @@
 
     // 데이터 업데이트 함수
     function updateData() {
-      fetch('/api/current')
+      fetch('/api/latest')
         .then(response => response.json())
         .then(response => {
-          // response.current contains the current data point
-          if (response.current && JSON.stringify(response.current) !== JSON.stringify(lastData)) {
-            lastData = response.current;
-            updateUI(response.current);
+          if (response.data && JSON.stringify(response.data) !== JSON.stringify(lastData)) {
+            lastData = response.data;
+            updateUI(response.data);
           }
         })
         .catch(error => console.error('Error fetching data:', error));
@@ -152,51 +160,151 @@
     function updateUI(data) {
       if (!data) return;
 
-      // 마지막 업데이트 시간
-      document.getElementById('last-update').textContent = 
-        `마지막 업데이트: ${new Date().toLocaleTimeString()}`;
+      // 서버 시간 (현재 시간)
+      const now = new Date();
+      document.getElementById('server-time').textContent = now.toLocaleTimeString();
+      
+      // 드론에서 받은 타임스탬프 표시 (ISO 8601 형식 예상)
+      if (data.timestamp) {
+        try {
+          // ISO 8601 형식의 문자열을 Date 객체로 변환
+          const droneTime = new Date(data.timestamp);
+          if (!isNaN(droneTime.getTime())) {
+            // 유효한 날짜인 경우에만 표시
+            document.getElementById('last-update-time').textContent = formatDateTime(droneTime);
+            document.getElementById('last-update').textContent = formatTime(droneTime);
+          } else {
+            // 유효하지 않은 날짜인 경우
+            console.warn('Invalid timestamp from drone:', data.timestamp);
+            showCurrentTime();
+          }
+        } catch (e) {
+          console.error('Error parsing timestamp:', e);
+          showCurrentTime();
+        }
+      } else {
+        // 타임스탬프가 없는 경우
+        showCurrentTime();
+      }
+      
+      // 현재 시간을 표시하는 헬퍼 함수
+      function showCurrentTime() {
+        document.getElementById('last-update-time').textContent = formatDateTime(now);
+        document.getElementById('last-update').textContent = formatTime(now);
+      }
+
+      // 비행 상태 업데이트
+      updateFlightStatus(data);
 
       // IMU 가속도계
-      if (data.sensor?.imu?.accel) {
-        document.getElementById('accel-x').textContent = data.sensor.imu.accel.x.toFixed(3);
-        document.getElementById('accel-y').textContent = data.sensor.imu.accel.y.toFixed(3);
-        document.getElementById('accel-z').textContent = data.sensor.imu.accel.z.toFixed(3);
+      if (data.imu) {
+        document.getElementById('accel-x').textContent = data.imu.accel_x?.toFixed(3) || '0.000';
+        document.getElementById('accel-y').textContent = data.imu.accel_y?.toFixed(3) || '0.000';
+        document.getElementById('accel-z').textContent = data.imu.accel_z?.toFixed(3) || '0.000';
+        
+        document.getElementById('gyro-x').textContent = data.imu.gyro_x?.toFixed(2) || '0.00';
+        document.getElementById('gyro-y').textContent = data.imu.gyro_y?.toFixed(2) || '0.00';
+        document.getElementById('gyro-z').textContent = data.imu.gyro_z?.toFixed(2) || '0.00';
       }
 
-      // 자세 정보
-      if (data.stabilizer?.attitude) {
-        document.getElementById('pitch').textContent = `${data.stabilizer.attitude.pitch.toFixed(2)}°`;
-        document.getElementById('roll').textContent = `${data.stabilizer.attitude.roll.toFixed(2)}°`;
-        document.getElementById('yaw').textContent = `${data.stabilizer.attitude.yaw.toFixed(2)}°`;
+      // 모터 출력 업데이트
+      if (data.motors) {
+        const motors = data.motors;
+        ['1', '2', '3', '4'].forEach(motorNum => {
+          const value = Math.round(motors[`m${motorNum}`] || 0);
+          document.getElementById(`motor-${motorNum}`).textContent = value;
+          document.getElementById(`motor-${motorNum}-pwm`).textContent = value;
+          
+          // 모터 값에 따라 색상 변경 (1000-2000 범위에서)
+          const motorElement = document.getElementById(`motor-${motorNum}`);
+          const percent = Math.min(100, Math.max(0, (value - 1000) / 10));
+          motorElement.style.color = `hsl(${120 - (percent * 1.2)}, 70%, 40%)`;
+          motorElement.parentNode.style.background = `hsla(${120 - (percent * 1.2)}, 50%, 90%, 0.5)`;
+        });
       }
 
-      // 고도 및 위치
-      if (data.sensor?.baro) {
-        document.getElementById('altitude').textContent = `${data.sensor.baro.altitude.toFixed(2)} m`;
+      // 고도
+      if (data.altitude !== undefined) {
+        document.getElementById('altitude-value').textContent = `${data.altitude.toFixed(2)} m`;
       }
-      if (data.sensor?.gps) {
-        document.getElementById('latitude').textContent = data.sensor.gps.lat.toFixed(5);
-        document.getElementById('longitude').textContent = data.sensor.gps.lon.toFixed(5);
-      }
+    }
 
-      // 모터 출력
-      if (data.stabilizer?.motors) {
-        document.getElementById('motor-1').textContent = Math.round(data.stabilizer.motors.m1);
-        document.getElementById('motor-2').textContent = Math.round(data.stabilizer.motors.m2);
-        document.getElementById('motor-3').textContent = Math.round(data.stabilizer.motors.m3);
-        document.getElementById('motor-4').textContent = Math.round(data.stabilizer.motors.m4);
-      }
 
-      // 상태 테이블 업데이트
-      updateStatusTable(data);
+    // 비행 상태 업데이트
+    function updateFlightStatus(data) {
+      const phaseElement = document.getElementById('flight-phase');
+      if (!phaseElement) return;
+      
+      const phase = data.flight_phase || 'IDLE';
+      let phaseText = '대기 중';
+      let phaseClass = 'phase-idle';
+      
+      switch(phase.toUpperCase()) {
+        case 'TAKEOFF':
+          phaseText = '이륙 중';
+          phaseClass = 'phase-takeoff';
+          break;
+        case 'HOVER':
+          phaseText = '호버링';
+          phaseClass = 'phase-hover';
+          break;
+        case 'MOVE_FORWARD':
+          phaseText = '전진 중';
+          phaseClass = 'phase-move_forward';
+          break;
+        case 'MOVE_BACKWARD':
+          phaseText = '후진 중';
+          phaseClass = 'phase-move_backward';
+          break;
+        case 'MOVE_LEFT':
+          phaseText = '좌측 이동';
+          phaseClass = 'phase-move_left';
+          break;
+        case 'MOVE_RIGHT':
+          phaseText = '우측 이동';
+          phaseClass = 'phase-move_right';
+          break;
+        case 'LAND':
+          phaseText = '착륙 중';
+          phaseClass = 'phase-land';
+          break;
+        case 'EMERGENCY_STOP':
+          phaseText = '비상 정지';
+          phaseClass = 'phase-emergency_stop';
+          break;
+      }
+      
+      // Update phase element
+      phaseElement.className = 'text-2xl font-bold px-4 py-2 rounded-md inline-block ' + phaseClass;
+      phaseElement.textContent = phaseText;
     }
 
     // 상태 테이블 업데이트
     function updateStatusTable(data) {
       const tableBody = document.getElementById('status-table');
+      if (!tableBody) return;
+      
       tableBody.innerHTML = '';
 
       if (!data) return;
+      
+      // 비행 상태 추가
+      addTableRow(tableBody, '비행 상태', data.flight_phase || 'UNKNOWN');
+      
+      // IMU 데이터 추가
+      if (data.imu) {
+        addTableRow(tableBody, '가속도 X', data.imu.accel_x?.toFixed(3) || '0.000');
+        addTableRow(tableBody, '가속도 Y', data.imu.accel_y?.toFixed(3) || '0.000');
+        addTableRow(tableBody, '가속도 Z', data.imu.accel_z?.toFixed(3) || '0.000');
+        addTableRow(tableBody, '자이로 X', data.imu.gyro_x?.toFixed(2) + ' rad/s' || '0.00 rad/s');
+        addTableRow(tableBody, '자이로 Y', data.imu.gyro_y?.toFixed(2) + ' rad/s' || '0.00 rad/s');
+        addTableRow(tableBody, '자이로 Z', data.imu.gyro_z?.toFixed(2) + ' rad/s' || '0.00 rad/s');
+      }
+      
+      // 고도 추가
+      if (data.altitude !== undefined) {
+        addTableRow(tableBody, '고도', `${data.altitude.toFixed(2)} m`);
+      }
 
       // 센서 데이터 추가
       addTableRow(tableBody, 'IMU 자이로 X', data.sensor?.imu?.gyro?.x?.toFixed(3) + ' rad/s');
@@ -225,12 +333,41 @@
       tbody.appendChild(row);
     }
 
+    // 날짜/시간 포맷팅 함수
+    function formatDateTime(date) {
+      if (!(date instanceof Date) || isNaN(date.getTime())) return '-';
+      return date.toLocaleString('ko-KR', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      }).replace(/\./g, '-').replace(/,/g, '');
+    }
+    
+    // 시간 포맷팅 함수
+    function formatTime(date) {
+      if (!(date instanceof Date) || isNaN(date.getTime())) return '-';
+      return date.toLocaleTimeString('ko-KR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+      });
+    }
+
     // 초기화
     document.addEventListener('DOMContentLoaded', () => {
+      // 초기 데이터 로드
+      updateData();
+      
       // 1초마다 데이터 업데이트
       setInterval(updateData, 1000);
-      // 페이지 로드 시 즉시 한 번 업데이트
-      updateData();
+      
+      // 1초마다 서버 시간 업데이트
+      setInterval(updateServerTime, 1000);
     });
   </script>
 </body>
