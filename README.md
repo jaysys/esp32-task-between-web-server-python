@@ -1,6 +1,6 @@
 # ESP32 데이터 수집/모니터링 서버 (Flask + 웹)
 
-ESP32(예: TaskYo.ino)에서 HTTP POST로 전송되는 JSON 데이터를 수신하여,
+ESP32에서 HTTP POST로 전송되는 JSON 데이터를 수신하여,
 
 - 터미널에 출력하고
 - 웹페이지에서 실시간으로 자동 갱신되는 표로 모니터링할 수 있는
@@ -13,15 +13,18 @@ ESP32(예: TaskYo.ino)에서 HTTP POST로 전송되는 JSON 데이터를 수신�
 1. **필요 패키지 설치** (최초 1회)
 
    ```bash
-   pip install flask
+   pip install flask flask_cors
    # 또는 pyproject.toml/uv/poetry 등 환경에 맞게 설치
    ```
 
 2. **서버 실행**
 
    ```bash
-   python task.py
-   # 또는 uv run python main.py
+   python drone.py
+   # uv run python drone.py
+
+   python main-xxx.py
+   # 또는 uv run python main-xxx.py
    ```
 
 3. **웹페이지 접속**
@@ -69,11 +72,18 @@ ESP32(예: TaskYo.ino)에서 HTTP POST로 전송되는 JSON 데이터를 수신�
 - ESP32에서 HTTP POST로 들어오는 JSON 데이터를 실시간으로 저장/표시
 - 웹페이지(/)에서 최신 20개 데이터 자동 갱신
 - `/api/latest`로 JSON 데이터 목록 조회 가능 (프론트엔드 등 연동 가능)
-
----
-
-## 기타 참고
-
 - 서버는 5003번 포트에서 실행됩니다. 포트가 다를 경우 코드와 주소를 맞춰야 합니다.
 - 방화벽/네트워크 환경에서 5003 포트가 열려 있어야 ESP32와 통신 및 웹 접속이 가능합니다.
 - Flask 개발 서버는 테스트/개발용입니다. 실제 서비스용은 WSGI 서버(gunicorn 등) 사용을 권장합니다.
+
+---
+
+## 구현 내용
+
+### 호버링
+
+![대기 중 화면](demo.png)
+
+### RTOS 프로그래밍 on ESP32 보드
+
+![호버링 화면](demo_drone.png)

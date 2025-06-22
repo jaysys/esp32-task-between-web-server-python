@@ -47,7 +47,14 @@ void MainStabilizerTask(void *pv);
 void MainCommandTask(void *pv);
 void MainFailsafeTask(void *pv);
 void handleFlightCommand(CommandType cmd);
-void connectToWiFi();
+bool connectToWiFi();
+bool isWiFiConnected();
+bool synchronizeSystemTime();
+void updateFlightScenario();
+void SubSensorManager_IMUTask(void *pv);
+void SubSensorManager_BarometerTask(void *pv);
+void SubSensorManager_GPSTask(void *pv);
+void SubSensorManager_MagnetometerTask(void *pv);
 
 // Forward declarations
 struct SensorData;
@@ -83,7 +90,7 @@ const unsigned long NTP_TIMEOUT = 5000; // NTP 요청 타임아웃 (5초)
 
 // NTP 클라이언트 설정
 WiFiUDP ntpUDP;
-NTPClient timeClient(ntpUDP); // 초기화만 해두고 나중에 서버 설정
+NTPClient timeClient(ntpUDP, ntpServers[0], 9 * 3600); // 기본 서버로 초기화
 bool timeSynced = false;
 
 
@@ -221,96 +228,107 @@ void printStackTrace() {
   Serial.println("==========================\n");
 }
 
-// ========== NTP 시간 동기화 ==========
-void syncTime() {
-  static bool initialized = false;
-  static unsigned long lastAttemptTime = 0;
-  static int retryCount = 0;
-  const unsigned long RETRY_INTERVAL = 10000; // 10초마다 재시도
-  
-  // 메모리 상태 확인
-  Serial.printf("[NTP] Free heap: %d bytes\n", ESP.getFreeHeap());
-  
-  // WiFi 연결 확인
-  if (!isWiFiConnected()) {
-    Serial.println("[NTP] WiFi not connected, trying to reconnect...");
-    connectToWiFi();
+// ========== Time Synchronization ==========
+/**
+ * 시스템 시간을 동기화하는 함수
+ * @return bool 동기화 성공 여부
+ */
+bool synchronizeSystemTime() {
+    static unsigned long lastSyncAttempt = 0;
+    const unsigned long SYNC_RETRY_INTERVAL = 300000; // 5분마다 재시도
+    unsigned long currentTime = millis();
+    
+    // 이미 동기화된 상태이고 아직 재시도 주기가 지나지 않았으면 스킵
+    if (timeSynced && (currentTime - lastSyncAttempt < SYNC_RETRY_INTERVAL)) {
+        return true;
+    }
+    
+    Serial.println("\n[TimeSync] Starting time synchronization...");
+    lastSyncAttempt = currentTime;
+    
+    // WiFi 연결 확인
     if (!isWiFiConnected()) {
-      timeSynced = false;
-      return;
-    }
-  }
-  
-  // NTP 클라이언트 초기화
-  if (!initialized) {
-    Serial.println("[NTP] Initializing NTP client");
-    timeClient.begin();
-    timeClient.setUpdateInterval(0); // 자동 업데이트 비활성화 (수동으로 제어)
-    timeClient.setTimeOffset(9 * 3600); // KST (UTC+9)
-    initialized = true;
-  }
-  
-  // 현재 시간 가져오기
-  unsigned long currentTime = millis();
-  
-  // 주기적으로 NTP 업데이트 시도
-  if (currentTime - lastAttemptTime >= RETRY_INTERVAL) {
-    lastAttemptTime = currentTime;
-    
-    // 현재 NTP 서버 설정
-    timeClient.setPoolServerName(ntpServers[currentNtpServer]);
-    Serial.printf("[NTP] Trying server %d/%d: %s\n", 
-                  currentNtpServer + 1, ntpServerCount, ntpServers[currentNtpServer]);
-    
-    // NTP 서버 응답 대기
-    bool success = false;
-    unsigned long startTime = millis();
-    
-    // 최대 5초 동안 시도
-    while (millis() - startTime < NTP_TIMEOUT) {
-      if (timeClient.forceUpdate()) {
-        success = true;
-        break;
-      }
-      delay(100); // 짧은 대기
+        Serial.println("[TimeSync] ❌ WiFi not connected, attempting to connect...");
+        if (!connectToWiFi()) {
+            Serial.println("[TimeSync] ❌ Failed to connect to WiFi");
+            return false;
+        }
     }
     
-    if (success) {
-      timeSynced = true;
-      retryCount = 0;
-      
-      // 성공한 서버 정보 출력
-      Serial.print("[NTP] Time updated: ");
-      Serial.print(timeClient.getFormattedTime());
-      Serial.print(" from ");
-      Serial.println(ntpServers[currentNtpServer]);
-      
-      // 다음에 같은 서버를 먼저 시도하도록 유지
-      lastNtpUpdate = millis();
-    } else {
-      // 실패 시 다음 서버로 전환
-      currentNtpServer = (currentNtpServer + 1) % ntpServerCount;
-      retryCount++;
-      
-      Serial.printf("[NTP] Failed to sync (Attempt %d)\n", retryCount);
-      
-      // 여러 번 실패하면 WiFi 재연결 시도
-      if (retryCount >= ntpServerCount * 2) {
-        Serial.println("[NTP] Too many retries, reconnecting WiFi...");
-        WiFi.disconnect();
-        connectToWiFi();
-        retryCount = 0;
-      }
+    // NTP 서버 목록 순회하며 동기화 시도
+    bool syncSuccess = false;
+    for (int i = 0; i < ntpServerCount && !syncSuccess; i++) {
+        // 현재 NTP 서버 설정
+        timeClient.setPoolServerName(ntpServers[currentNtpServer]);
+        
+        Serial.printf("[TimeSync] ⌛ Attempting to sync with %s...\n", ntpServers[currentNtpServer]);
+        
+        // 시간 동기화 시도
+        unsigned long startTime = millis();
+        bool updated = timeClient.forceUpdate();
+        
+        if (updated && timeClient.getEpochTime() > 1600000000) { // 유효한 시간인지 확인 (2020년 이후)
+            syncSuccess = true;
+            timeSynced = true;
+            lastNtpUpdate = millis();
+            
+            Serial.print("[TimeSync] ✅ Time updated: ");
+            Serial.print(timeClient.getFormattedTime());
+            Serial.print(" from ");
+            Serial.println(ntpServers[currentNtpServer]);
+            
+            // 네트워크 상태 출력
+            printNetworkStatus();
+            return true;
+        }
+        
+        // 실패 시 다음 서버로 전환
+        currentNtpServer = (currentNtpServer + 1) % ntpServerCount;
+        
+        // 여러 번 실패하면 WiFi 재연결 시도
+        static int retryCount = 0;
+        retryCount++;
+        
+        if (retryCount >= ntpServerCount * 2) {
+          Serial.println("[TimeSync] 🔄 Too many retries, reconnecting WiFi...");
+          WiFi.disconnect();
+          if (connectToWiFi()) {
+            retryCount = 0; // Reset retry count only if reconnection succeeds
+          }
+        }
+        
+        printNetworkStatus();
+        
+        // 30초마다 상태 출력 (디버깅용)
+        static unsigned long lastPrintTime = 0;
+        if (timeSynced && millis() - lastPrintTime >= 30000) {
+          lastPrintTime = millis();
+          Serial.print("[TimeSync] ⏰ Current time: ");
+          Serial.println(timeClient.getFormattedTime());
+        }
     }
-  }
   
-  // 1시간마다 시간 출력 (디버깅용)
-  static unsigned long lastPrintTime = 0;
-  if (timeSynced && currentTime - lastPrintTime >= 3600000) {
-    lastPrintTime = currentTime;
-    Serial.print("[NTP] Current time: ");
-    Serial.println(timeClient.getFormattedTime());
-  }
+  return timeSynced;
+}
+
+// NTP 오류 코드 해석
+void printNtpError(int error) {
+  Serial.print("[NTP] ❗ Error: ");
+  // NTPClient 라이브러리 버전에 따라 오류 코드가 다를 수 있으므로 일반적인 메시지만 출력
+  Serial.println("NTP synchronization failed");
+}
+
+// 네트워크 상태 출력
+void printNetworkStatus() {
+  Serial.println("\n[NETWORK] ===== Status =====");
+  Serial.printf("SSID: %s\n", WiFi.SSID().c_str());
+  Serial.printf("BSSID: %s\n", WiFi.BSSIDstr().c_str());
+  Serial.printf("RSSI: %d dBm\n", WiFi.RSSI());
+  Serial.printf("IP: %s\n", WiFi.localIP().toString().c_str());
+  Serial.printf("Subnet: %s\n", WiFi.subnetMask().toString().c_str());
+  Serial.printf("Gateway: %s\n", WiFi.gatewayIP().toString().c_str());
+  Serial.printf("DNS: %s\n", WiFi.dnsIP().toString().c_str());
+  Serial.println("==========================\n");
 }
 
 // ========== 현재 타임스탬프 가져오기 ==========
@@ -343,13 +361,13 @@ unsigned long getCurrentTimestamp() {
 }
 
 // ========== WiFi Connection ==========
-void connectToWiFi() {
-  // 이미 연결되어 있으면 리턴
+bool connectToWiFi() {
+  // 이미 연결되어 있으면 성공으로 리턴
   if (WiFi.status() == WL_CONNECTED) {
-    return;
+    return true;
   }
   
-  Serial.println("Connecting to WiFi...");
+  Serial.println("[WiFi] Connecting to WiFi...");
   WiFi.disconnect(true); // 이전 연결 정리
   delay(100);
   
@@ -357,26 +375,29 @@ void connectToWiFi() {
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
   
-  // 연결 시도 (최대 10초)
+  // 연결 시도 (최대 15초)
   unsigned long startTime = millis();
-  while (WiFi.status() != WL_CONNECTED && (millis() - startTime < 10000)) {
+  while (WiFi.status() != WL_CONNECTED && (millis() - startTime < 15000)) {
     delay(500);
     Serial.print(".");
+    if ((millis() - startTime) % 2000 == 0) {
+      Serial.printf("\n[WiFi] Status: %d\n", WiFi.status());
+    }
   }
   
   if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\nWiFi connected");
-    Serial.print("IP address: ");
+    Serial.println("\n[WiFi] Connected!");
+    Serial.print("[WiFi] IP address: ");
     Serial.println(WiFi.localIP());
     
-    // WiFi 연결 성공 시 시간 동기화 시도
-    if (!timeSynced) {
-      syncTime();
-    }
+    // WiFi 연결 성공 시 시간 동기화 플래그만 설정 (실제 동기화는 메인 루프에서 진행)
+    timeSynced = false;
+    return true;
   } else {
-    Serial.println("\nFailed to connect to WiFi");
+    Serial.println("\n[WiFi] Failed to connect!");
     timeSynced = false;
     WiFi.disconnect();
+    return false;
   }
 }
 
@@ -1199,6 +1220,27 @@ void setup() {
   // Print initial task info
   Serial.println("\nInitial Task Information:");
   monitorTasks();
+  
+//   // Initialize time synchronization with retries
+//   Serial.println("\n[System] Starting time synchronization...");
+//   const int maxRetries = 3;
+//   int retryCount = 0;
+//   while (retryCount < maxRetries) {
+//     if (synchronizeSystemTime()) {
+//       Serial.println("[System] Time synchronization successful!");
+//       break;
+//     }
+    
+//     retryCount++;
+//     if (retryCount < maxRetries) {
+//       Serial.printf("[System] Time synchronization failed, retrying... (%d/%d)\n", retryCount, maxRetries);
+//       delay(5000); // Wait 5 seconds before retry
+//     } else {
+//       Serial.println("[System] ❌ Failed to synchronize time after multiple attempts");
+//       // You might want to add error handling here (e.g., enter error state)
+//     }
+//   }
+
 }
 
 void loop() {
